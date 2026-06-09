@@ -1,4 +1,4 @@
-name: Deploy Docker App
+name: Deploy to EC2
 
 on:
   push:
@@ -6,12 +6,30 @@ on:
       - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t mywebsite .
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            if [ -d ~/mydockerapp ]; then
+              cd ~/mydockerapp
+              git pull origin main
+            else
+              git clone https://github.com/${{ github.repository }}.git ~/mydockerapp
+              cd ~/mydockerapp
+            fi
+
+            sudo docker stop mywebsite || true
+            sudo docker rm mywebsite || true
+
+            sudo docker build -t mywebsite .
+            sudo docker run -d -p 80:80 --name mywebsite mywebsite
